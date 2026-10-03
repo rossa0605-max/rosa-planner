@@ -465,7 +465,8 @@ function occurrences(it, from, to) {
   const out = []; let cur = a;
   for (let i = 0; i < 800 && cur <= to; i++) {
     if (it.repeat_until && cur > it.repeat_until) break;
-    if (cur >= from) out.push(cur);
+    const wd = parseD(cur).getDay();
+    if (cur >= from && !(it.repeat === 'weekdays' && (wd === 0 || wd === 6))) out.push(cur);
     cur = nextDate(cur, it.repeat);
   }
   return out;
@@ -587,7 +588,7 @@ function render() {
   const open = items.filter(i => !i.done);
   // 임박 배너 (24시간 이내)
   const urgent = open.map(i => ({ i, ms: dueAt(i) - now })).filter(x => dueAt(x.i) && x.ms >= 0 && x.ms < 86400000).sort((a, b) => a.ms - b.ms);
-  $('alerts').innerHTML = urgent.map(({ i, ms }) => `<div class="alert-item soon" data-edit="${i.id}">⏰ <b>${esc(i.title)}</b> — 마감까지 ${remain(ms)}</div>`).join('');
+  $('alerts').innerHTML = urgent.map(({ i, ms }) => `<div class="alert-item soon" data-edit="${i.id}">⏰ <b>${esc(i.title)}</b> — ${i.due_date ? '마감' : '시작'}까지 ${remain(ms)}</div>`).join('');
 
   for (const v of ['today', 'list', 'cal']) $('v-' + v).classList.toggle('hidden', view !== v);
   if (view === 'today') renderToday(open, today, now);

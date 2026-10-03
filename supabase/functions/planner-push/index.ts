@@ -92,12 +92,12 @@ async function runCron() {
     const tag = `[${CATS[it.cat] || ""}] `;
     if (ms > 0 && ms <= it.remind * 60000 && await claim(it.user_id, `r:${it.id}:${due}`)) {
       sent += await sendTo(byUser.get(it.user_id)!, {
-        title: `⏰ 마감 ${remain(ms)} 전`, body: tag + it.title, tag: it.id,
+        title: `⏰ ${it.due_date ? "마감" : "일정"} ${remain(ms)} 전`, body: tag + it.title, tag: it.id,
       });
     }
     if (ms <= 0 && ms > -3600_000 && await claim(it.user_id, `d:${it.id}:${due}`)) {
       sent += await sendTo(byUser.get(it.user_id)!, {
-        title: "⚠️ 마감 시간이에요", body: tag + it.title, tag: it.id,
+        title: it.due_date ? "⚠️ 마감 시간이에요" : "📅 일정 시작 시간이에요", body: tag + it.title, tag: it.id,
       });
     }
   }
