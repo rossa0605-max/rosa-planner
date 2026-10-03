@@ -1,5 +1,5 @@
 // Rosa 플래너 서비스 워커: 푸시 알림 + 오프라인 화면
-const CACHE = 'rosa-planner-v1';
+const CACHE = 'rosa-planner-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png'];
 
 self.addEventListener('install', e => {
