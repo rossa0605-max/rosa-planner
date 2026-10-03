@@ -126,6 +126,12 @@
   .cal .day.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
   .cal .num { font-size: 12px; font-weight: 600; display: inline-block; min-width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 999px; }
   .cal .day.today .num { background: var(--accent); color: var(--on-accent); }
+  .cal .dhead { display: flex; align-items: center; gap: 3px; min-width: 0; }
+  .cal .day.sun .num, .cal .day.hol .num { color: var(--high); }
+  .cal .day.sat .num { color: var(--academy); }
+  .cal .day.today .num { color: var(--on-accent); }
+  .cal .hname { font-size: 10px; color: var(--high); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .cal .hname.anniv { color: var(--muted); }
   .cal .ev { font-size: 11px; line-height: 1.35; padding: 1px 4px; border-radius: 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cal .ev.academy { background: var(--academy-bg); color: var(--academy); }
   .cal .ev.online { background: var(--online-bg); color: var(--online); }
@@ -136,6 +142,8 @@
   @media (max-width: 560px) {
     .cal .day { min-height: 64px; padding: 2px; }
     .cal .ev { font-size: 10px; padding: 0 2px; }
+    .cal .dhead { flex-direction: column; align-items: flex-start; gap: 0; }
+    .cal .hname { font-size: 9px; max-width: 100%; padding-left: 1px; }
   }
 
   /* 추가 버튼 + 시트 */
@@ -399,6 +407,39 @@ const PRIO_RANK = { high: 0, mid: 1, low: 2 };
 const REPEATS = { daily: '매일', weekdays: '평일', weekly: '매주', monthly: '매월', yearly: '매년' };
 const DEFAULT_SUBS = ['수업', '상담', '학부모', '강사', '유튜브', '인스타', '온라인 프로그램', '촬영', '가족', '약속', '병원'];
 const COLS = 'id,title,cat,sub,date,time,due_date,due_time,prio,remind,memo,done,done_at,repeat,repeat_until';
+
+// 공휴일 (네이버 달력 기준, 대체공휴일·선거일 포함)
+const HOLIDAYS = {
+  // 2025
+  '2025-01-01': '신정', '2025-01-27': '임시공휴일', '2025-01-28': '설날 연휴', '2025-01-29': '설날', '2025-01-30': '설날 연휴',
+  '2025-03-01': '삼일절', '2025-03-03': '대체공휴일', '2025-05-05': '어린이날·부처님오신날', '2025-05-06': '대체공휴일',
+  '2025-06-03': '대통령선거', '2025-06-06': '현충일', '2025-08-15': '광복절', '2025-10-03': '개천절',
+  '2025-10-05': '추석 연휴', '2025-10-06': '추석', '2025-10-07': '추석 연휴', '2025-10-08': '대체공휴일',
+  '2025-10-09': '한글날', '2025-12-25': '성탄절',
+  // 2026
+  '2026-01-01': '신정', '2026-02-16': '설날 연휴', '2026-02-17': '설날', '2026-02-18': '설날 연휴',
+  '2026-03-01': '삼일절', '2026-03-02': '대체공휴일', '2026-05-01': '노동절', '2026-05-05': '어린이날',
+  '2026-05-24': '부처님오신날', '2026-05-25': '대체공휴일', '2026-06-03': '지방선거', '2026-06-06': '현충일',
+  '2026-07-17': '제헌절', '2026-08-15': '광복절', '2026-08-17': '대체공휴일',
+  '2026-09-24': '추석 연휴', '2026-09-25': '추석', '2026-09-26': '추석 연휴',
+  '2026-10-03': '개천절', '2026-10-05': '대체공휴일', '2026-10-09': '한글날', '2026-12-25': '성탄절',
+  // 2027
+  '2027-01-01': '신정', '2027-02-06': '설날 연휴', '2027-02-07': '설날', '2027-02-08': '설날 연휴', '2027-02-09': '대체공휴일',
+  '2027-03-01': '삼일절', '2027-05-01': '노동절', '2027-05-03': '대체공휴일', '2027-05-05': '어린이날',
+  '2027-05-13': '부처님오신날', '2027-06-06': '현충일', '2027-07-17': '제헌절', '2027-07-19': '대체공휴일',
+  '2027-08-15': '광복절', '2027-08-16': '대체공휴일', '2027-09-14': '추석 연휴', '2027-09-15': '추석', '2027-09-16': '추석 연휴',
+  '2027-10-03': '개천절', '2027-10-04': '대체공휴일', '2027-10-09': '한글날', '2027-10-11': '대체공휴일',
+  '2027-12-25': '성탄절', '2027-12-27': '대체공휴일',
+  // 2028
+  '2028-01-01': '신정', '2028-01-26': '설날 연휴', '2028-01-27': '설날', '2028-01-28': '설날 연휴',
+  '2028-03-01': '삼일절', '2028-04-12': '국회의원선거', '2028-05-01': '노동절', '2028-05-02': '부처님오신날',
+  '2028-05-05': '어린이날', '2028-06-06': '현충일', '2028-07-17': '제헌절', '2028-08-15': '광복절',
+  '2028-10-02': '추석 연휴', '2028-10-03': '추석·개천절', '2028-10-04': '추석 연휴', '2028-10-05': '대체공휴일',
+  '2028-10-09': '한글날', '2028-12-25': '성탄절',
+};
+// 쉬는 날은 아니지만 달력에 회색으로 보이는 기념일
+const ANNIVS = { '02-14': '밸런타인데이', '04-05': '식목일', '05-08': '어버이날', '05-15': '스승의날', '10-01': '국군의 날', '12-24': '크리스마스 이브' };
+const dayName = s => HOLIDAYS[s] ? { name: HOLIDAYS[s], hol: true } : ANNIVS[s.slice(5)] ? { name: ANNIVS[s.slice(5)], hol: false } : null;
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -670,15 +711,17 @@ function renderCal() {
     const d = new Date(start); d.setDate(start.getDate() + i); const s = ymd(d);
     const evs = (byDay[s] || []).sort((a, b) => PRIO_RANK[a.it.prio] - PRIO_RANK[b.it.prio]);
     const max = 3;
-    html += `<div class="day ${d.getMonth() !== m ? 'other' : ''} ${s === today ? 'today' : ''} ${s === selDay ? 'sel' : ''}" data-day="${s}">
-      <span class="num">${d.getDate()}</span>
+    const hn = dayName(s), wd = d.getDay();
+    html += `<div class="day ${d.getMonth() !== m ? 'other' : ''} ${s === today ? 'today' : ''} ${s === selDay ? 'sel' : ''} ${wd === 0 ? 'sun' : wd === 6 ? 'sat' : ''} ${hn?.hol ? 'hol' : ''}" data-day="${s}">
+      <div class="dhead"><span class="num">${d.getDate()}</span>${hn ? `<span class="hname ${hn.hol ? '' : 'anniv'}">${esc(hn.name)}</span>` : ''}</div>
       ${evs.slice(0, max).map(({ it, kind }) => `<div class="ev ${it.cat} ${kind === 'due' ? 'due' : ''} ${it.done ? 'isdone' : ''}">${kind === 'due' ? '🏁' : ''}${esc(it.title)}</div>`).join('')}
       ${evs.length > max ? `<div class="more">+${evs.length - max}</div>` : ''}
     </div>`;
   }
   $('cal').innerHTML = html;
   const dayItems = (byDay[selDay] || []).map(x => x.it).filter((v, i, a) => a.indexOf(v) === i);
-  $('dayTitle').textContent = fmtDate(selDay) + ' 일정';
+  const selName = dayName(selDay);
+  $('dayTitle').textContent = fmtDate(selDay) + (selName ? ` ${selName.name}` : '') + ' 일정';
   fill('dayList', dayItems, '이 날은 일정이 없어요. + 버튼으로 추가할 수 있어요');
 }
 
