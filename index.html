@@ -11,8 +11,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rosa 플래너">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#17171a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f5f2">
+<meta name="color-scheme" content="light only">
 <style>
   :root {
     --bg: #f6f5f2; --card: #ffffff; --text: #23211e; --muted: #7a756d; --line: #e6e2db;
@@ -22,13 +22,7 @@
     --high: #d93a2b; --mid: #e59a18; --low: #9a958c;
     --danger-bg: #fdecea; --warn-bg: #fff6e0;
     --accent: #23211e; --on-accent: #ffffff;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #17171a; --card: #222226; --text: #eceae6; --muted: #9b968e; --line: #34343a;
-      --academy-bg: #1d2b45; --online-bg: #3a1f2d; --personal-bg: #1a3328;
-      --danger-bg: #3d1f1c; --warn-bg: #3a2f17; --accent: #eceae6; --on-accent: #17171a;
-    }
+    color-scheme: light;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; }
