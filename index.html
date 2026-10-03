@@ -55,6 +55,8 @@
   .login p { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
   .login .primary { width: 100%; margin-top: 16px; padding: 11px; }
   .login .switch { text-align: center; margin-top: 12px; font-size: 14px; }
+  .field-err { font-size: 13px; color: var(--high); font-weight: 600; margin-top: 5px; }
+  input.err { border-color: var(--high); box-shadow: 0 0 0 2px var(--danger-bg); }
   .msg { font-size: 14px; margin-top: 12px; color: var(--high); }
   .msg.ok { color: var(--personal); }
 
@@ -263,15 +265,15 @@
 
 <!-- 일정 입력 시트 -->
 <div class="overlay hidden" id="formOverlay">
-  <form class="sheet" id="form" autocomplete="off">
+  <form class="sheet" id="form" autocomplete="off" novalidate>
     <div class="sheet-head">
       <h2 id="formTitle">새 일정</h2>
       <button type="button" class="ghost icon" data-close>✕</button>
     </div>
     <input type="hidden" id="editId">
 
-    <label class="f" for="title">할 일 / 일정</label>
-    <input id="title" required placeholder="예) 11월 레벨테스트 공지 올리기">
+    <label class="f" for="title">할 일 / 일정 <span style="color:var(--high)">*필수</span></label>
+    <input id="title" placeholder="예) 11월 레벨테스트 공지 올리기">
 
     <label class="f">분류</label>
     <div class="seg">
@@ -285,12 +287,12 @@
     <datalist id="subList"></datalist>
 
     <div class="row2">
-      <div><label class="f" for="date">일정 날짜</label><input type="date" id="date"></div>
-      <div><label class="f" for="time">시간</label><input type="time" id="time"></div>
+      <div><label class="f" for="date">일정 날짜 <span style="font-weight:400">(선택)</span></label><input type="date" id="date"></div>
+      <div><label class="f" for="time">시간 <span style="font-weight:400">(선택)</span></label><input type="time" id="time"></div>
     </div>
     <div class="row2">
-      <div><label class="f" for="dueDate">마감 날짜</label><input type="date" id="dueDate"></div>
-      <div><label class="f" for="dueTime">마감 시간</label><input type="time" id="dueTime"></div>
+      <div><label class="f" for="dueDate">마감 날짜 <span style="font-weight:400">(선택)</span></label><input type="date" id="dueDate"></div>
+      <div><label class="f" for="dueTime">마감 시간 <span style="font-weight:400">(선택)</span></label><input type="time" id="dueTime"></div>
     </div>
 
     <label class="f">우선순위</label>
@@ -331,7 +333,7 @@
       <input type="date" id="repeatUntil">
     </div>
 
-    <label class="f" for="memo">메모</label>
+    <label class="f" for="memo">메모 <span style="font-weight:400">(선택)</span></label>
     <textarea id="memo" placeholder="자세한 내용"></textarea>
 
     <div class="form-actions">
@@ -518,7 +520,7 @@ const radio = n => document.querySelector(`input[name=${n}]:checked`).value;
 const setRadio = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
 
 function openForm(it, presetDate) {
-  $('form').reset(); $('editId').value = it?.id || '';
+  $('form').reset(); clearErrors(); $('editId').value = it?.id || '';
   setRadio('cat', it?.cat || catFilter || 'academy'); setRadio('prio', it?.prio || 'mid');
   $('title').value = it?.title || ''; $('sub').value = it?.sub || '';
   $('date').value = it?.date || presetDate || ''; $('time').value = it?.time || '';
@@ -544,12 +546,29 @@ $('form').addEventListener('submit', async e => {
     prio: radio('prio'), remind: +$('remind').value, memo: $('memo').value.trim() || null,
     repeat: $('repeat').value, repeat_until: $('repeat').value !== 'none' && $('repeatUntil').value || null,
   };
-  if (!data.title) return;
-  if (data.repeat !== 'none' && !data.date && !data.due_date) return toast('반복 일정은 날짜가 필요해요');
+  clearErrors();
+  if (!data.title) return fieldError('title', '할 일 / 일정 이름을 적어주세요');
+  if (data.repeat !== 'none' && !data.date && !data.due_date) return fieldError('date', '반복 일정은 일정 날짜(또는 마감 날짜)가 필요해요');
   $('submitBtn').disabled = true;
   const ok = await saveItem(data, $('editId').value);
   $('submitBtn').disabled = false;
   if (ok) { closeSheets(); toast($('editId').value ? '저장했어요' : '추가했어요'); }
+});
+// 빠진 항목을 그 칸 바로 아래에 표시하고 그 칸으로 이동
+function fieldError(id, msg) {
+  const el = $(id);
+  el.classList.add('err');
+  const m = document.createElement('div'); m.className = 'field-err'; m.textContent = '⚠️ ' + msg;
+  el.insertAdjacentElement('afterend', m);
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.focus();
+}
+function clearErrors() {
+  document.querySelectorAll('#form .field-err').forEach(e => e.remove());
+  document.querySelectorAll('#form .err').forEach(e => e.classList.remove('err'));
+}
+$('form').addEventListener('input', e => {
+  if (e.target.classList.contains('err')) { e.target.classList.remove('err'); e.target.nextElementSibling?.classList.contains('field-err') && e.target.nextElementSibling.remove(); }
 });
 function closeSheets() { document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden')); }
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => {
