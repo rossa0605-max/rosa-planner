@@ -139,6 +139,25 @@
   .cal .ev.due { font-weight: 700; }
   .cal .ev.isdone { text-decoration: line-through; opacity: .6; }
   .cal .more { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* 진행표 */
+  .board-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+  .board { border-collapse: separate; border-spacing: 0; font-size: 11px; }
+  .board th, .board td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 3px; vertical-align: top; width: 64px; min-width: 64px; max-width: 64px; }
+  .board th { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.3; }
+  .board th.sun, .board th.hol { color: var(--high); } .board th.sat { color: var(--academy); }
+  .board th.today { background: var(--accent); color: var(--on-accent); }
+  .board td.today { background: var(--warn-bg); }
+  .board .rl { position: sticky; left: 0; z-index: 1; background: var(--card); width: 86px; min-width: 86px; max-width: 86px; font-size: 12px; font-weight: 600; vertical-align: middle; word-break: keep-all; }
+  .board .grp td { background: var(--bg); font-weight: 700; font-size: 12px; padding: 6px; }
+  .board .grp td.rl { background: var(--bg); }
+  .board .chip { display: block; border-radius: 4px; padding: 2px 3px; margin-bottom: 2px; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; cursor: pointer; }
+  .board .chip.academy { background: var(--academy-bg); color: var(--academy); }
+  .board .chip.online { background: var(--online-bg); color: var(--online); }
+  .board .chip.personal { background: var(--personal-bg); color: var(--personal); }
+  .board .chip.dl { background: var(--high); color: #fff; font-weight: 700; }
+  .board .chip.isdone { text-decoration: line-through; opacity: .45; }
+  .board-hint { font-size: 12px; color: var(--muted); margin: 8px 2px 0; line-height: 1.5; }
   @media (max-width: 560px) {
     .cal .day { min-height: 64px; padding: 2px; }
     .cal .ev { font-size: 10px; padding: 0 2px; }
@@ -214,6 +233,7 @@
     <button data-v="today" class="on">오늘</button>
     <button data-v="list">목록</button>
     <button data-v="cal">달력</button>
+    <button data-v="board">진행표</button>
   </div>
 
   <div class="alerts" id="alerts"></div>
@@ -258,6 +278,17 @@
     <div class="cal" id="cal"></div>
     <div class="section-title" id="dayTitle"></div>
     <div class="list" id="dayList"></div>
+  </section>
+
+  <!-- 진행표 -->
+  <section id="v-board" class="hidden">
+    <div class="cal-head">
+      <button id="prevB">‹</button>
+      <h2 id="boardTitle"></h2>
+      <button id="nextB">›</button>
+    </div>
+    <div class="board-wrap"><table class="board" id="board"></table></div>
+    <div class="board-hint">빨간 칸은 업로드·마감이에요. 칸을 누르면 수정할 수 있어요.<br>제목을 "릴스 ④ · 기획"처럼 가운뎃점(·)이나 " - "로 나누면 같은 줄에 모여요.</div>
   </section>
 
   <div class="sync" id="syncStr"></div>
@@ -451,6 +482,7 @@ let user = null, items = [], settings = { summary_on: true, summary_hour: 7 };
 let view = 'today', listView = 'todo', catFilter = null;
 let calMonth = new Date(); calMonth.setDate(1);
 let selDay = ymd(new Date());
+let boardStart = ymd(new Date());
 
 // ---------- 날짜 계산 ----------
 function dueAt(it) {
@@ -644,10 +676,11 @@ function render() {
   const urgent = open.map(i => ({ i, ms: dueAt(i) - now })).filter(x => dueAt(x.i) && x.ms >= 0 && x.ms < 86400000).sort((a, b) => a.ms - b.ms);
   $('alerts').innerHTML = urgent.map(({ i, ms }) => `<div class="alert-item soon" data-edit="${i.id}">⏰ <b>${esc(i.title)}</b> — ${i.due_date ? '마감' : '시작'}까지 ${remain(ms)}</div>`).join('');
 
-  for (const v of ['today', 'list', 'cal']) $('v-' + v).classList.toggle('hidden', view !== v);
+  for (const v of ['today', 'list', 'cal', 'board']) $('v-' + v).classList.toggle('hidden', view !== v);
   if (view === 'today') renderToday(open, today, now);
   if (view === 'list') renderList();
   if (view === 'cal') renderCal();
+  if (view === 'board') renderBoard();
 }
 
 function renderToday(open, today, now) {
@@ -725,6 +758,48 @@ function renderCal() {
   fill('dayList', dayItems, '이 날은 일정이 없어요. + 버튼으로 추가할 수 있어요');
 }
 
+// 진행표: "릴스 ① · 기획"처럼 제목 앞부분이 같은 일정을 한 줄로 모아 2주를 한눈에
+const BOARD_DAYS = 14;
+const DEADLINE_WORDS = /업로드|오픈|시작|완료|완성|전달|예약|제본|마감|수업/;
+function renderBoard() {
+  const days = Array.from({ length: BOARD_DAYS }, (_, i) => shift(boardStart, i));
+  const from = days[0], to = days[days.length - 1], today = ymd(new Date());
+  const md = s => { const d = parseD(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  $('boardTitle').textContent = `${md(from)} ~ ${md(to)}`;
+  const rows = new Map();
+  for (const it of items) {
+    let ds;
+    if (it.repeat === 'none' && it.date && it.due_date && it.due_date > it.date) {
+      ds = [];
+      for (let d = it.date; d <= it.due_date; d = shift(d, 1)) if (d >= from && d <= to) ds.push(d);
+    } else ds = occurrences(it, from, to);
+    if (!ds.length) continue;
+    const m = it.title.match(/^(.+?)\s+[·\-]\s+(.+)$/);
+    const label = m ? m[1] : it.title, step = m ? m[2] : (it.time || '●');
+    const key = it.cat + '|' + label;
+    const r = rows.get(key) || { cat: it.cat, label, first: ds[0], cells: {} };
+    if (ds[0] < r.first) r.first = ds[0];
+    const end = it.due_date || it.date;
+    for (const d of ds) (r.cells[d] ||= []).push({ it, step, dl: !it.done && ((!it.date && it.due_date === d) || (DEADLINE_WORDS.test(step) && end === d)) });
+    rows.set(key, r);
+  }
+  const cats = Object.keys(CATS);
+  const list = [...rows.values()].sort((a, b) => cats.indexOf(a.cat) - cats.indexOf(b.cat) || a.first.localeCompare(b.first) || a.label.localeCompare(b.label));
+  let html = '<tr><th class="rl"></th>' + days.map(s => {
+    const d = parseD(s), wd = d.getDay();
+    return `<th class="${wd === 0 ? 'sun' : wd === 6 ? 'sat' : ''} ${HOLIDAYS[s] ? 'hol' : ''} ${s === today ? 'today' : ''}">${d.getDate()}<br>${'일월화수목금토'[wd]}</th>`;
+  }).join('') + '</tr>';
+  let cat = null;
+  for (const r of list) {
+    if (r.cat !== cat) { cat = r.cat; html += `<tr class="grp"><td class="rl">${CATS[cat]}</td><td colspan="${days.length}"></td></tr>`; }
+    html += `<tr><td class="rl">${esc(r.label)}</td>` + days.map(s =>
+      `<td class="${s === today ? 'today' : ''}">${(r.cells[s] || []).map(({ it, step, dl }) =>
+        `<span class="chip ${it.cat} ${dl ? 'dl' : ''} ${it.done ? 'isdone' : ''}" data-edit="${it.id}">${esc(step)}</span>`).join('')}</td>`).join('') + '</tr>';
+  }
+  if (!list.length) html += `<tr><td class="rl"></td><td colspan="${days.length}"><div class="empty">이 기간에는 일정이 없어요</div></td></tr>`;
+  $('board').innerHTML = html;
+}
+
 // 이벤트 위임
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-edit]'); if (t) return openForm(items.find(i => i.id === t.dataset.edit));
@@ -748,6 +823,8 @@ $('sort').onchange = render;
 $('search').oninput = render;
 $('prevM').onclick = () => { calMonth.setMonth(calMonth.getMonth() - 1); render(); };
 $('nextM').onclick = () => { calMonth.setMonth(calMonth.getMonth() + 1); render(); };
+$('prevB').onclick = () => { boardStart = shift(boardStart, -7); render(); };
+$('nextB').onclick = () => { boardStart = shift(boardStart, 7); render(); };
 
 function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
